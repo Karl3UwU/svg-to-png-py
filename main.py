@@ -1,176 +1,204 @@
 from __future__ import annotations
-import math, re, numpy, sys
+import sys
+import os
+from parser import parse_svg_file
+from svg_state import SVGState
+from renderer import Renderer
 
-xml_pattern = re.compile(r'\<(.*?)\>', flags=re.DOTALL | re.MULTILINE)
-comment_pattern = re.compile(r'\!--(.*?)--', flags=re.DOTALL | re.MULTILINE)
-first_word_pattern = re.compile(r'^\s*[/!?]*\s*(\w+)')
-
-def is_self_terminating(svg_value: str):
-    return svg_value.endswith('/')
-
-def is_terminator(svg_value: str):
-    return svg_value.startswith('/')
-
-def get_tag(svg_value: str):
-    return first_word_pattern.search(svg_value).group(1)
-
-def str_to_int(value: str):
-    return int(value)
-
-def str_to_float(value: str):
-    return float(value)
-
-hex_converter = {
-    3: [1, 16],
-    6: [2, 256]
-}
-
-def str_to_hex(value: str):
-    value = value[1:]
-    splits = [int(value[i:i+hex_converter[len(value)][0]], 16)/hex_converter[len(value)][1] for i in range(0, len(value), hex_converter[len(value)][0])]
+def process_svg_file(svg_path: str, output_path: str = None, verbose: bool = False,
+                    width: int = None, height: int = None, 
+                    background: tuple[int, int, int] = (255, 255, 255),
+                    skip_render: bool = False):
+    if not os.path.exists(svg_path):
+        print(f"Error: File not found: {svg_path}")
+        return False
     
-    return splits
+    if not svg_path.lower().endswith('.svg'):
+        print(f"Warning: {svg_path} does not have .svg extension bruh")
+    
+    try:
+        entries = parse_svg_file(svg_path)
+        svg_state = SVGState(entries)
+        
+        if verbose:
+            print(f"\nProcessing: {svg_path}")
+            print(f"Viewport: {svg_state.viewport_width}x{svg_state.viewport_height}")
+            if svg_state.viewbox:
+                print(f"ViewBox: {svg_state.viewbox}")
+            svg_state.print_validation_report()
+        
+        # Validate SVG
+        if not svg_state.is_valid():
+            print(f"Error: {svg_path} has validation errors")
+            return False
+        
+        if output_path is None:
+            base_name = os.path.splitext(os.path.basename(svg_path))[0]
+            output_path = f"{base_name}.png"
+        
+        if verbose:
+            print(f"Output will be: {output_path}")
+            if width or height:
+                print(f"Output dimensions: {width or int(svg_state.viewport_width)}x{height or int(svg_state.viewport_height)}")
+            print(f"Background color: RGB{background}")
+        
+        if not skip_render:
+            try:
+                renderer = Renderer(svg_state, width=width, height=height, background_color=background)
+                renderer.render()
+                
+                try:
+                    from PIL import Image
+                    rgb_buffer = renderer.get_rgb_buffer()
+                    image = Image.fromarray(rgb_buffer, 'RGB')
+                    image.save(output_path)
+                    if verbose:
+                        print(f"[OK] Rendered and saved: {output_path}")
+                    else:
+                        print(f"[OK] {svg_path} -> {output_path}")
+                except ImportError:
+                    if verbose:
+                        print(f"[WARNING] PIL/Pillow not installed. Buffer created but PNG export skipped.")
+                        print(f"         Install with: pip install Pillow 🤓")
+                    print(f"[OK] Rendered: {svg_path} (TODO: Export with Pillow or some random ass library)")
+                except Exception as e:
+                    print(f"Error saving PNG: {e}")
+                    return False
+            except Exception as e:
+                print(f"Error during rendering: {e}")
+                if verbose:
+                    import traceback
+                    traceback.print_exc()
+                return False
+        else:
+            print(f"[OK] Parsed: {svg_path} -> {output_path} (rendering skipped)")
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error processing {svg_path}: {e}")
+        return False
 
-def mapRange(x, frommin, frommax, tomin, tomax):
-    return ((x-frommin)/(frommax-frommin))*(tomax-tomin)+tomin
-
-def clamp(x, minx, maxx):
-    return max(min(x, maxx), minx)
-
-def extractArguments(line: str):
-    line2 = line.split(" ", 1)[1]
-    args = {}
-    state = 0
-    accumulator = ""
-    temp_hash_key = ""
-    for i in range(len(line2)):
-        if(line2[i] == '='):
-            if(state == 0):
-                temp_hash_key = accumulator
-                args[temp_hash_key] = None
-                accumulator = ""
-                state = 1
-        if(state == 0):
-            if(line2[i] != ' '):
-                accumulator = accumulator + line2[i]
-        elif (state == 1):
-            if(line2[i] == '\"'):
-                state = 2
-        elif (state == 2):
-            if(line2[i] == '\\'):
-                state = 3
-            elif (line2[i] == '\"'):
-                args[temp_hash_key] = accumulator
-                state = 0
-                accumulator = ""
+def main():
+    args = sys.argv[1:]
+    
+    if len(args) == 0:
+        print("SVG to PNG Converter")
+        print("Usage: python main.py <svg_file1> [svg_file2] ... [options]")
+        print("\nOptions:")
+        print("  -v, --verbose         Print detailed information")
+        print("  -o, --output PATH     Specify output directory or file pattern")
+        print("  -w, --width WIDTH     Override output width in pixels")
+        print("  -h, --height HEIGHT   Override output height in pixels")
+        print("  -b, --background RGB  Background color as R,G,B (default: 255,255,255)")
+        print("  --skip-render         Skip rendering (only parse and validate)")
+        print("\nExamples:")
+        print("  python main.py test.svg")
+        print("  python main.py file1.svg file2.svg file3.svg")
+        print("  python main.py *.svg -v")
+        print("  python main.py test.svg -w 800 -h 600")
+        print("  python main.py test.svg -b 0,0,0  # Black background")
+        return
+    
+    verbose = False
+    output_dir = None
+    width = None
+    height = None
+    background = (255, 255, 255)
+    skip_render = False
+    svg_files = []
+    
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg in ['-v', '--verbose']:
+            verbose = True
+        elif arg in ['-o', '--output']:
+            if i + 1 < len(args):
+                output_dir = args[i + 1]
+                i += 1
             else:
-                accumulator = accumulator + line2[i]
-        elif(state == 3):
-            accumulator = accumulator + line2[i]
-            if(line2[i] == '\"'):
-                state = 2
-    return args
-
-class Node:
-    def __init__(self, value: str):
-        self.value = value
-        self.tag = get_tag(value)
-        self.children = []
-        self.parent = None
-        
-    def add_child(self, value: str):
-        new_node = Node(value)
-        new_node.parent = self
-        new_node.tag = get_tag(new_node.value)
-        self.children.append(new_node)
-    
-    def add_node_child(self, new_node: Node):
-        new_node.parent = self
-        self.children.append(new_node)
-        
-    def compare_tag(self, compare_svg: str) -> bool:
-        return self.tag == get_tag(compare_svg)
-
-    def print_tree(self, level=0):
-        indent = '    ' * level
-        print(f"{indent}- {self.tag}")
-        for child in self.children:
-            child.print_tree(level + 1)
-
-class SVGState:
-    def __init__(self, entries: list[str] = []):
-        self.metadata = {}
-        self.svg_tree: Node = None
-        self.parse_svg_contents(entries)
-        pass
-    
-    def parse_svg_contents(self, entries: list[str]):
-        iterator = iter(entries)
-        
-        for svg_element in iterator:
-            tag = get_tag(svg_element)
-            if tag == "svg":
-                self.svg_tree = Node(svg_element)
-                r = self.svg_tree
-                break
-            self.metadata[tag] = svg_element
-
-        for svg_element in iterator:
-            if(r == None): return
-            if(is_terminator(svg_element) and r.compare_tag(svg_element)):
-                r = r.parent
-                continue
-            if(is_self_terminating(svg_element)):
-                r.add_child(svg_element)
+                print("Error: -o/--output requires a path argument")
+                return
+        elif arg in ['-w', '--width']:
+            if i + 1 < len(args):
+                try:
+                    width = int(args[i + 1])
+                    if width <= 0:
+                        print("Error: Width must be positive")
+                        return
+                except ValueError:
+                    print("Error: Width must be an integer")
+                    return
+                i += 1
             else:
-                new_child = Node(svg_element)
-                r.add_node_child(new_child)
-                r = new_child
-
-class Renderer:
-    def __init__(self):
-        self.render_matrix = numpy.full((100, 100, 3), 0)
-        self.svg_state = None
-        self.path = None
+                print("Error: -w/--width requires a value")
+                return
+        elif arg in ['-h', '--height']:
+            if i + 1 < len(args):
+                try:
+                    height = int(args[i + 1])
+                    if height <= 0:
+                        print("Error: Height must be positive")
+                        return
+                except ValueError:
+                    print("Error: Height must be an integer")
+                    return
+                i += 1
+            else:
+                print("Error: -h/--height requires a value")
+                return
+        elif arg in ['-b', '--background']:
+            if i + 1 < len(args):
+                try:
+                    rgb_parts = args[i + 1].split(',')
+                    if len(rgb_parts) != 3:
+                        print("Error: Background must be R,G,B (e.g., 255,255,255)")
+                        return
+                    r = int(rgb_parts[0].strip())
+                    g = int(rgb_parts[1].strip())
+                    b = int(rgb_parts[2].strip())
+                    r = max(0, min(255, r))
+                    g = max(0, min(255, g))
+                    b = max(0, min(255, b))
+                    background = (r, g, b)
+                except (ValueError, IndexError):
+                    print("Error: Background must be R,G,B integers (e.g., 255,255,255)")
+                    return
+                i += 1
+            else:
+                print("Error: -b/--background requires R,G,B values")
+                return
+        elif arg == '--skip-render':
+            skip_render = True
+        elif arg.startswith('-'):
+            print(f"Unknown option: {arg}")
+            return
+        else:
+            svg_files.append(arg)
+        i += 1
     
-    def read_svg_file(self, path):
-        self.path = path
-        # read shit
-        file = open(path, 'r')
-        data = file.read()
-        entries = xml_pattern.findall(data)
-        # remove comments
-        entries = [x for x in entries if not comment_pattern.search(x)]
-        # create state object
-        self.svg_state = SVGState(entries)
-        # self.svg_state.svg_tree.print_tree()
+    if len(svg_files) == 0:
+        print("Error: No SVG files specified")
+        return
     
-    def render(self):
-        if(not self.path):
-            raise Exception("Tried to render without initializing the svg state, killing myself...")
-        self._render(self.svg_state.svg_tree)
-    
-    def _render(self, r:Node):
-        if(r.tag == 'rect'):
-            args = extractArguments(r.value)
-            x = str_to_float(args['x'])
-            y = str_to_float(args['y'])
-            width = str_to_float(args['width'])
-            height = str_to_float(args['height'])
-            stroke_width = str_to_float(args['stroke-width'])
-            bounds = {
-                'x_left': x - stroke_width/2,
-                'x_right': x + width + stroke_width/2,
-                'y_top': y - stroke_width/2,
-                'y_bot': y + height + stroke_width/2
-            }
-            # continue next year
-            
+    success_count = 0
+    for svg_file in svg_files:
+        output_path = None
+        if output_dir:
+            if os.path.isdir(output_dir):
+                base_name = os.path.splitext(os.path.basename(svg_file))[0]
+                output_path = os.path.join(output_dir, f"{base_name}.png")
+            else:
+                if len(svg_files) == 1:
+                    output_path = output_dir
+                else:
+                    print(f"Warning: -o with multiple files requires a directory, not a file")
         
+        if process_svg_file(svg_file, output_path, verbose, width, height, background, skip_render):
+            success_count += 1
+    
+    print(f"\nProcessed {success_count}/{len(svg_files)} file(s) successfully")
 
-args = sys.argv
-if(len(args) < 2):
-    raise Exception("I will raise my goddamn fist if you don't use 'python main.py <arg1, arg2, arg3, ...>'")
-
-renderer = Renderer()
-renderer.read_svg_file(args[1])
+if __name__ == "__main__":
+    main()
