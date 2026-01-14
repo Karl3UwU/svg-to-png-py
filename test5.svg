@@ -6,6 +6,7 @@
   <rect x="50" y="50" width="200" height="150" rx="20" ry="20" fill="#e94560" stroke="#fff" stroke-width="3" opacity="0.9"/>
   <rect x="300" y="50" width="150" height="150" rx="30" fill="#0f3460" stroke="#ffd32a" stroke-width="5" stroke-dasharray="10 5" stroke-dashoffset="0"/>
   <rect x="500" y="50" width="200" height="150" rx="15" ry="40" fill="#533483" stroke="#16213e" stroke-width="2" transform="rotate(15 600 125)"/>
+  <rect x="750" y="50" width="150" height="150" rx="25" fill="#00d9ff" stroke="#ff006e" stroke-width="4" opacity="0.7" transform="scale(0.8) translate(937.5 62.5)"/>
   
   <!-- Circles with various attributes -->
   <circle cx="150" cy="300" r="80" fill="#ff6b6b" stroke="#4ecdc4" stroke-width="6" opacity="0.85"/>
@@ -94,13 +95,7 @@
   <line x1="600" y1="680" x2="700" y2="680" stroke="#a29bfe" stroke-width="20" stroke-linecap="square"/>
   <line x1="600" y1="710" x2="700" y2="710" stroke="#00d9ff" stroke-width="20" stroke-linecap="butt"/>
   
-  <!-- Polylines showing different joins -->
-  <polyline points="750,650 800,600 850,650" fill="none" stroke="#ff6b9d" stroke-width="15" stroke-linejoin="miter" stroke-miterlimit="10"/>
-  <polyline points="750,700 800,650 850,700" fill="none" stroke="#c44569" stroke-width="15" stroke-linejoin="round"/>
-  <polyline points="750,750 800,700 850,750" fill="none" stroke="#f8b500" stroke-width="15" stroke-linejoin="bevel"/>
-  
   <!-- Complex path with all command types -->
   <path d="M 50,50 m 20,20 l 30,30 h 20 v 20 c 10,10 20,10 30,0 s 10,-20 0,-30 q 10,-10 20,0 t 20,20 a 15,15 0 1,1 -30,0 z" 
         fill="#e94560" fill-rule="nonzero" stroke="#fff" stroke-width="2" opacity="0.9" transform="translate(900, 800) scale(0.5)"/>
 </svg>
-

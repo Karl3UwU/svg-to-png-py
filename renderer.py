@@ -52,7 +52,9 @@ class Renderer:
         if len(self.context_stack) > 1:
             self.context_stack.pop()
     
-    def _svg_to_pixel(self, x: float, y: float) -> Tuple[int, int]:
+    def _svg_to_pixel(self, x, y) -> Tuple:
+        if(isinstance(x, str) or isinstance(y, str)):
+            return (x, y) 
         px, py = self.svg_state.transform_point(x, y)
         ctx = self._get_current_context()
         px, py = ctx.transform.transform_point(px, py)
@@ -71,6 +73,11 @@ class Renderer:
             if self.svg_state.viewbox_scale_y != 0:
                 py = (py - self.svg_state.viewbox_offset_y) / self.svg_state.viewbox_scale_y
         return (px, py)
+    
+    def _get_transform_scale(self, transform: TransformMatrix) -> float:
+        scale_x = math.sqrt(transform.a * transform.a + transform.b * transform.b)
+        scale_y = math.sqrt(transform.c * transform.c + transform.d * transform.d)
+        return (scale_x + scale_y) / 2.0
     
     def _is_point_clipped(self, x: int, y: int) -> bool:
         ctx = self._get_current_context()
@@ -370,7 +377,7 @@ class Renderer:
                 if stroke_width_svg <= 0:
                     return False
                 svg_x, svg_y = self._pixel_to_svg(px, py)
-                half_stroke_svg = stroke_width_svg / 2.0
+                half_stroke_svg = stroke_width_svg
                 inner_min_x = x + half_stroke_svg
                 inner_max_x = x + width - half_stroke_svg
                 inner_min_y = y + half_stroke_svg
@@ -415,7 +422,7 @@ class Renderer:
             def is_inside_inner_rect(px: float, py: float) -> bool:
                 svg_x, svg_y = self._pixel_to_svg(px, py)
                 
-                half_stroke_svg = stroke_width_svg / 2.0
+                half_stroke_svg = stroke_width_svg
                 inner_min_x = x + half_stroke_svg
                 inner_max_x = x + width - half_stroke_svg
                 inner_min_y = y + half_stroke_svg
@@ -536,6 +543,10 @@ class Renderer:
         center_x, center_y = self._svg_to_pixel(cx, cy)
         radius_px = abs(self.svg_state.transform_length(r, True))
         
+        if not ctx.transform.is_identity():
+            scale_factor = self._get_transform_scale(ctx.transform)
+            radius_px = radius_px * scale_factor
+        
         if radius_px <= 0:
             return
         
@@ -559,97 +570,27 @@ class Renderer:
             self._draw_circle_stroke_midpoint(center_x_int, center_y_int, r_inner_int, r_outer_int, stroke_color)
     
     def _draw_circle_fill_midpoint(self, cx: int, cy: int, r: int, color: Tuple[int, int, int, int]):
-        if r <= 0:
-            return
-        
-        x = 0
-        y = r
-        d = 1 - r
-        
-        def plot_circle_points(x, y):
-            if cx + x >= 0 and cx + x < self.width:
-                if cy + y >= 0 and cy + y < self.height:
-                    self._set_pixel(cx + x, cy + y, color)
-                if cy - y >= 0 and cy - y < self.height:
-                    self._set_pixel(cx + x, cy - y, color)
-            if cx - x >= 0 and cx - x < self.width:
-                if cy + y >= 0 and cy + y < self.height:
-                    self._set_pixel(cx - x, cy + y, color)
-                if cy - y >= 0 and cy - y < self.height:
-                    self._set_pixel(cx - x, cy - y, color)
-            if cx + y >= 0 and cx + y < self.width:
-                if cy + x >= 0 and cy + x < self.height:
-                    self._set_pixel(cx + y, cy + x, color)
-                if cy - x >= 0 and cy - x < self.height:
-                    self._set_pixel(cx + y, cy - x, color)
-            if cx - y >= 0 and cx - y < self.width:
-                if cy + x >= 0 and cy + x < self.height:
-                    self._set_pixel(cx - y, cy + x, color)
-                if cy - x >= 0 and cy - x < self.height:
-                    self._set_pixel(cx - y, cy - x, color)
-        
-        def fill_circle_horizontal(cx, cy, x, y):
-            for px in range(max(0, cx - x), min(self.width, cx + x + 1)):
-                if cy + y >= 0 and cy + y < self.height:
-                    self._set_pixel(px, cy + y, color)
-                if cy - y >= 0 and cy - y < self.height:
-                    self._set_pixel(px, cy - y, color)
-            for px in range(max(0, cx - y), min(self.width, cx + y + 1)):
-                if cy + x >= 0 and cy + x < self.height:
-                    self._set_pixel(px, cy + x, color)
-                if cy - x >= 0 and cy - x < self.height:
-                    self._set_pixel(px, cy - x, color)
-        
-        plot_circle_points(x, y)
-        fill_circle_horizontal(cx, cy, x, y)
-        
-        while x < y:
-            if d < 0:
-                d += 2 * x + 3
-            else:
-                d += 2 * (x - y) + 5
-                y -= 1
-            x += 1
-            plot_circle_points(x, y)
-            fill_circle_horizontal(cx, cy, x, y)
+        for i in range(cx-r, cx+r):
+            for j in range(cy-r, cy+r):
+                try:
+                    sdf = self.sdEllipse([i-cx + 0.0001, j-cy + 0.0001], [r, r+0.5] )
+                    if(sdf < 1.0):
+                        self._set_pixel(i, j, (color[0], color[1], color[2], color[3]*((1.0-max(sdf,0.0))**2)))
+                except:
+                    self._set_pixel(i, j, color)
     
     def _draw_circle_stroke_midpoint(self, cx: int, cy: int, r_inner: int, r_outer: int, color: Tuple[int, int, int, int]):
-        if r_outer <= 0:
-            return
-        
-        def draw_circle_ring(cx, cy, r_inner, r_outer):
-            if r_inner >= r_outer:
-                return
-            
-            def is_in_ring(x, y):
-                dist_sq = x * x + y * y
-                inner_sq = r_inner * r_inner
-                outer_sq = r_outer * r_outer
-                return inner_sq < dist_sq <= outer_sq
-            
-            x = 0
-            y = r_outer
-            d = 1 - r_outer
-            
-            def plot_point(x, y):
-                if is_in_ring(x, y):
-                    for dx, dy in [(x, y), (-x, y), (x, -y), (-x, -y), (y, x), (-y, x), (y, -x), (-y, -x)]:
-                        px, py = cx + dx, cy + dy
-                        if 0 <= px < self.width and 0 <= py < self.height:
-                            self._set_pixel(px, py, color)
-            
-            plot_point(x, y)
-            
-            while x < y:
-                if d < 0:
-                    d += 2 * x + 3
-                else:
-                    d += 2 * (x - y) + 5
-                    y -= 1
-                x += 1
-                plot_point(x, y)
-        
-        draw_circle_ring(cx, cy, r_inner, r_outer)
+        m = int((r_inner + r_outer)//2)
+        j1 = max(r_inner, r_outer)
+        for i in range(cx-j1*2, cx+j1*2):
+            for j in range(cy-j1*2, cy+j1*2):
+                try:
+                    sdf = abs(self.sdEllipse([i-cx + 0.0001, j-cy + 0.0001], [m, m+0.5] )) - (r_outer-r_inner)/2
+                    
+                    if(sdf < 1.0):
+                        self._set_pixel(i, j, (color[0], color[1], color[2], color[3]*((1.0-max(sdf,0.0))**2)))
+                except:
+                    self._set_pixel(i, j, color)
     
     def _render_ellipse(self, node: Node):
         ctx = self._get_current_context()
@@ -709,123 +650,84 @@ class Renderer:
             ry_outer_int = int(round(ry_outer))
             self._draw_ellipse_stroke_midpoint(center_x_int, center_y_int, rx_inner_int, ry_inner_int, rx_outer_int, ry_outer_int, stroke_color)
     
+    def sdCircle(self, p, r ):
+        return math.sqrt(p[0]*p[0] + p[1]*p[1]) - r
+    
+    
+    def sdEllipse(self, p, ab ):
+        p = [abs(p[0]), abs(p[1])]
+        if( p[0] > p[1] ):
+            t = p[0]
+            p[0] = p[1]
+            p[1] = t
+            t = ab[0]
+            ab[0] = ab[1]
+            ab[1] = t
+        l = ab[1]*ab[1] - ab[0]*ab[0]
+        m = ab[0]*p[0]/l;      
+        m2 = m*m
+        n = ab[1]*p[1]/l;      
+        n2 = n*n
+        c = (m2+n2-1.0)/3.0; 
+        c3 = c*c*c
+        q = c3 + m2*n2*2.0
+        d = c3 + m2*n2
+        g = m + m*n2
+        co = 0
+        if( d<0.0 ):
+            h = math.acos(q/c3)/3.0
+            s = math.cos(h)
+            t = math.sin(h)*math.sqrt(3.0)
+            rx = math.sqrt( -c*(s + t + 2.0) + m2 )
+            ry = math.sqrt( -c*(s - t + 2.0) + m2 )
+            co = (ry+np.sign(l)*rx+abs(g)/(rx*ry)- m)/2.0
+        else:
+            h = 2.0*m*n*math.sqrt( d )
+            s = np.sign(q+h)*pow(abs(q+h), 1.0/3.0)
+            u = np.sign(q-h)*pow(abs(q-h), 1.0/3.0)
+            rx = -s - u - c*4.0 + 2.0*m2
+            ry = (s - u)*math.sqrt(3.0)
+            rm = math.sqrt( rx*rx + ry*ry )
+            co = (ry/math.sqrt(rm-rx)+2.0*g/rm-m)/2.0
+        r = [ab[0] * co, ab[1] * math.sqrt(1.0-co*co)]
+        
+        return math.sqrt((r[0]-p[0])**2 + (r[1]-p[1])**2) * np.sign(p[1]-r[1])
+    
+    
     def _draw_ellipse_fill_midpoint(self, cx: int, cy: int, rx: int, ry: int, color: Tuple[int, int, int, int]):
-        if rx <= 0 or ry <= 0:
-            return
         
-        rx_sq = rx * rx
-        ry_sq = ry * ry
-        two_rx_sq = 2 * rx_sq
-        two_ry_sq = 2 * ry_sq
+        for i in range(cx-rx, cx+rx):
+            for j in range(cy-ry, cy+ry):
+                #print(i-cx, j-cy)
+                try:
+                    sdf = self.sdEllipse([i-cx + 0.0001, j-cy + 0.0001], [rx, ry] )
+                    if(sdf < 0.0):
+                        self._set_pixel(i, j, color)
+                except:
+                    pass
         
-        x = 0
-        y = ry
-        px = 0
-        py = two_rx_sq * y
         
-        def plot_ellipse_points(x, y):
-            for dx, dy in [(x, y), (-x, y), (x, -y), (-x, -y)]:
-                px, py = cx + dx, cy + dy
-                if 0 <= px < self.width and 0 <= py < self.height:
-                    self._set_pixel(px, py, color)
         
-        def fill_ellipse_horizontal(x, y):
-            for px in range(max(0, cx - x), min(self.width, cx + x + 1)):
-                if cy + y >= 0 and cy + y < self.height:
-                    self._set_pixel(px, cy + y, color)
-                if cy - y >= 0 and cy - y < self.height:
-                    self._set_pixel(px, cy - y, color)
-        
-        p1 = ry_sq - (rx_sq * ry) + (0.25 * rx_sq)
-        
-        plot_ellipse_points(x, y)
-        fill_ellipse_horizontal(x, y)
-        
-        while px < py:
-            x += 1
-            px += two_ry_sq
-            if p1 < 0:
-                p1 += ry_sq + px
-            else:
-                y -= 1
-                py -= two_rx_sq
-                p1 += ry_sq + px - py
-            plot_ellipse_points(x, y)
-            fill_ellipse_horizontal(x, y)
-        
-        p2 = (ry_sq * (x + 0.5) * (x + 0.5)) + (rx_sq * (y - 1) * (y - 1)) - (rx_sq * ry_sq)
-        
-        while y > 0:
-            y -= 1
-            py -= two_rx_sq
-            if p2 > 0:
-                p2 += rx_sq - py
-            else:
-                x += 1
-                px += two_ry_sq
-                p2 += rx_sq - py + px
-            plot_ellipse_points(x, y)
-            fill_ellipse_horizontal(x, y)
     
     def _draw_ellipse_stroke_midpoint(self, cx: int, cy: int, rx_inner: int, ry_inner: int, 
                                      rx_outer: int, ry_outer: int, color: Tuple[int, int, int, int]):
         if rx_outer <= 0 or ry_outer <= 0:
             return
         
-        def draw_ellipse_outline(cx, cy, rx, ry):
-            if rx <= 0 or ry <= 0:
-                return
-            
-            rx_sq = rx * rx
-            ry_sq = ry * ry
-            two_rx_sq = 2 * rx_sq
-            two_ry_sq = 2 * ry_sq
-            
-            x = 0
-            y = ry
-            px = 0
-            py = two_rx_sq * y
-            
-            def plot_point(x, y):
-                for dx, dy in [(x, y), (-x, y), (x, -y), (-x, -y)]:
-                    px, py = cx + dx, cy + dy
-                    if 0 <= px < self.width and 0 <= py < self.height:
-                        self._set_pixel(px, py, color)
-            
-            p1 = ry_sq - (rx_sq * ry) + (0.25 * rx_sq)
-            plot_point(x, y)
-            
-            while px < py:
-                x += 1
-                px += two_ry_sq
-                if p1 < 0:
-                    p1 += ry_sq + px
-                else:
-                    y -= 1
-                    py -= two_rx_sq
-                    p1 += ry_sq + px - py
-                plot_point(x, y)
-            
-            p2 = (ry_sq * (x + 0.5) * (x + 0.5)) + (rx_sq * (y - 1) * (y - 1)) - (rx_sq * ry_sq)
-            
-            while y > 0:
-                y -= 1
-                py -= two_rx_sq
-                if p2 > 0:
-                    p2 += rx_sq - py
-                else:
-                    x += 1
-                    px += two_ry_sq
-                    p2 += rx_sq - py + px
-                plot_point(x, y)
+        mx = int((rx_inner + rx_outer)//2)
+        my = int((ry_inner + ry_outer)//2)
+        mv = max(max(rx_inner, rx_outer), max(ry_inner, ry_outer))
+        c = rx_outer-rx_inner
         
-        if rx_inner > 0 and ry_inner > 0:
-            for rx in range(rx_inner, rx_outer + 1):
-                ry_scale = ry_outer / rx_outer if rx_outer > 0 else 1
-                ry = int(round(rx * ry_scale))
-                draw_ellipse_outline(cx, cy, rx, ry)
-        else:
-            draw_ellipse_outline(cx, cy, rx_outer, ry_outer)
+        
+        for i in range(cx-mv*2, cx+mv*2):
+            for j in range(cy-mv*2, cy+mv*2):
+                try:
+                    sdf = abs(self.sdEllipse([i-cx + 0.0001, j-cy + 0.0001], [mx, my+0.5] )) - c/2
+                    if(sdf < 1.0):
+                        self._set_pixel(i, j, (color[0], color[1], color[2], color[3]*((1.0-max(sdf,0.0))**2)))
+                except:
+                    self._set_pixel(i, j, color)
     
     def _parse_dasharray(self, dasharray_str: str, viewport_w: float, viewport_h: float) -> List[float]:
         if not dasharray_str or dasharray_str.lower() == 'none':
@@ -847,6 +749,15 @@ class Renderer:
             dash_values.extend(dash_values)
         
         return dash_values
+    
+    def sdSegment( self, p, a, b ):
+        pa = [p[0]-a[0], p[1]-a[1]]
+        ba = [b[0]-a[0], b[1]-a[1]]
+        h = min(max( (pa[0]*ba[0]+pa[1]*ba[1])/(ba[0]*ba[0]+ba[1]*ba[1]), 0.0), 1.0 )
+        
+        return math.sqrt( (pa[0] - ba[0]*h)**2 + (pa[1] - ba[1]*h)**2 )
+    
+    
     
     def _draw_line_segment(self, x1: int, y1: int, x2: int, y2: int, 
                           stroke_color: Tuple[int, int, int, int], 
@@ -917,6 +828,7 @@ class Renderer:
                 elif calculate_line_coverage(px + 0.5, py + 0.5) >= 0.5:
                     self._set_pixel(px, py, stroke_color)
     
+    
     def _draw_line_cap(self, x: int, y: int, angle: float, 
                       stroke_color: Tuple[int, int, int, int], 
                       stroke_width: float, cap_type: str):
@@ -975,7 +887,7 @@ class Renderer:
         half_width_int = max(1, int(half_width))
         bisect_angle = (angle1 + angle2) / 2.0
         
-        if join_type == 'round':
+        if join_type == 'round' or join_type == 'miter' or join_type == 'bevel':
             def is_inside_round_join(px: float, py: float) -> bool:
                 dx = px - x
                 dy = py - y
@@ -990,44 +902,6 @@ class Renderer:
                             self._set_pixel_aa(px, py, stroke_color, coverage)
                     elif is_inside_round_join(px + 0.5, py + 0.5):
                         self._set_pixel(px, py, stroke_color)
-        elif join_type == 'miter':
-            angle_diff = abs(angle2 - angle1)
-            if angle_diff > math.pi:
-                angle_diff = 2 * math.pi - angle_diff
-            
-            if angle_diff < 0.001:
-                return
-            
-            miter_length = half_width / math.sin(angle_diff / 2.0)
-            
-            if miter_length <= miter_limit * half_width:
-                cos_a = math.cos(bisect_angle)
-                sin_a = math.sin(bisect_angle)
-                miter_x = int(miter_length * cos_a)
-                miter_y = int(miter_length * sin_a)
-                
-                for offset_y in range(-half_width_int, half_width_int + 1):
-                    for offset_x in range(-half_width_int, half_width_int + 1):
-                        self._set_pixel(x + offset_x, y + offset_y, stroke_color)
-                
-                for i in range(half_width_int, int(miter_length) + 1):
-                    self._set_pixel(x + int(i * cos_a), y + int(i * sin_a), stroke_color)
-            else:
-                join_type = 'bevel'
-        
-        if join_type == 'bevel':
-            cos_a1 = math.cos(angle1)
-            sin_a1 = math.sin(angle1)
-            cos_a2 = math.cos(angle2)
-            sin_a2 = math.sin(angle2)
-            
-            for offset_y in range(-half_width_int, half_width_int + 1):
-                for offset_x in range(-half_width_int, half_width_int + 1):
-                    self._set_pixel(x + offset_x, y + offset_y, stroke_color)
-            
-            for i in range(1, half_width_int + 1):
-                self._set_pixel(x + int(i * cos_a1), y + int(i * sin_a1), stroke_color)
-                self._set_pixel(x + int(i * cos_a2), y + int(i * sin_a2), stroke_color)
     
     def _render_line(self, node: Node):
         ctx = self._get_current_context()
@@ -1368,6 +1242,8 @@ class Renderer:
             cmd_upper = cmd.upper()
             
             if cmd_upper == 'Z':
+                flag = True
+                
                 if len(points) > 0:
                     current_x, current_y = start_x, start_y
                     points.append((start_x, start_y))
@@ -1375,8 +1251,13 @@ class Renderer:
             
             numbers, pos = self._parse_path_numbers(path_str, pos)
             
+            flag = True
+            
             if cmd_upper == 'M':
                 if len(numbers) >= 2:
+                    if(flag):
+                        flag = False
+                        points.append(("dummy", "dummy"))
                     if is_relative:
                         current_x += numbers[0]
                         current_y += numbers[1]
@@ -1398,6 +1279,7 @@ class Renderer:
                         i += 2
             
             elif cmd_upper == 'L':
+                
                 i = 0
                 while i < len(numbers) - 1:
                     if is_relative:
@@ -1410,6 +1292,7 @@ class Renderer:
                     i += 2
             
             elif cmd_upper == 'H':
+                flag = True
                 for num in numbers:
                     if is_relative:
                         current_x += num
@@ -1418,6 +1301,7 @@ class Renderer:
                     points.append((current_x, current_y))
             
             elif cmd_upper == 'V':
+                flag = True
                 for num in numbers:
                     if is_relative:
                         current_y += num
@@ -1426,6 +1310,7 @@ class Renderer:
                     points.append((current_x, current_y))
             
             elif cmd_upper == 'C':
+                flag = True
                 i = 0
                 while i < len(numbers) - 5:
                     if is_relative:
@@ -1451,6 +1336,7 @@ class Renderer:
                     i += 6
             
             elif cmd_upper == 'S':
+                flag = True
                 i = 0
                 while i < len(numbers) - 3:
                     if prev_cp_x is not None:
@@ -1478,6 +1364,7 @@ class Renderer:
                     i += 4
             
             elif cmd_upper == 'Q':
+                flag = True
                 i = 0
                 while i < len(numbers) - 3:
                     if is_relative:
@@ -1499,6 +1386,7 @@ class Renderer:
                     i += 4
             
             elif cmd_upper == 'T':
+                flag = True
                 i = 0
                 while i < len(numbers) - 1:
                     if prev_qcp_x is not None:
@@ -1522,6 +1410,7 @@ class Renderer:
                     i += 2
             
             elif cmd_upper == 'A':
+                flag = True
                 i = 0
                 while i < len(numbers) - 6:
                     rx = numbers[i]
@@ -1553,25 +1442,30 @@ class Renderer:
             inside = False
             j = len(points) - 1
             for i in range(len(points)):
-                xi, yi = points[i]
-                xj, yj = points[j]
-                if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
-                    inside = not inside
-                j = i
+                if((not (isinstance(points[i][0], str) or isinstance(points[i][1], str)))):
+                    if((not (isinstance(points[j][0], str) or isinstance(points[j][1], str)))):
+                        
+                        xi, yi = points[i]
+                        xj, yj = points[j]
+                        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+                            inside = not inside
+                        j = i
             return inside
         else:
             winding = 0
             j = len(points) - 1
             for i in range(len(points)):
-                xi, yi = points[i]
-                xj, yj = points[j]
-                if yi <= y:
-                    if yj > y and (xj - xi) * (y - yi) - (yj - yi) * (x - xi) > 0:
-                        winding += 1
-                else:
-                    if yj <= y and (xj - xi) * (y - yi) - (yj - yi) * (x - xi) < 0:
-                        winding -= 1
-                j = i
+                if((not (isinstance(points[i][0], str) or isinstance(points[i][1], str)))):
+                    if((not (isinstance(points[j][0], str) or isinstance(points[j][1], str)))):
+                        xi, yi = points[i]
+                        xj, yj = points[j]
+                        if yi <= y:
+                            if yj > y and (xj - xi) * (y - yi) - (yj - yi) * (x - xi) > 0:
+                                winding += 1
+                        else:
+                            if yj <= y and (xj - xi) * (y - yi) - (yj - yi) * (x - xi) < 0:
+                                winding -= 1
+                        j = i
             return winding != 0
     
     def _render_path(self, node: Node):
@@ -1585,6 +1479,8 @@ class Renderer:
             return
         
         points = self._parse_path(path_str, viewport_w, viewport_h)
+        
+        
         if len(points) < 2:
             return
         
@@ -1602,17 +1498,26 @@ class Renderer:
         fill_rule = get_attribute_with_default(node, 'fill-rule', use_inheritance=True) or 'nonzero'
         
         if fill_color[3] > 0 and len(pixel_points) >= 3:
-            min_x = int(min(p[0] for p in pixel_points))
-            max_x = int(max(p[0] for p in pixel_points))
-            min_y = int(min(p[1] for p in pixel_points))
-            max_y = int(max(p[1] for p in pixel_points))
             
-            int_pixel_points = [(int(round(p[0])), int(round(p[1]))) for p in pixel_points]
+            if(not (isinstance(pixel_points[0], str) or isinstance(pixel_points[1], str))):
+                
+                
             
-            for py in range(max(0, min_y - 1), min(self.height, max_y + 2)):
-                for px in range(max(0, min_x - 1), min(self.width, max_x + 2)):
-                    if self._point_in_polygon(px, py, int_pixel_points, fill_rule):
-                        self._set_pixel(px, py, fill_color)
+                min_x = int(min(p[0] if (not (isinstance(p[0], str) or isinstance(p[1], str))) else 100000000 for p in pixel_points))
+                max_x = int(max(p[0] if (not (isinstance(p[0], str) or isinstance(p[1], str))) else -100000000 for p in pixel_points))
+                min_y = int(min(p[1] if (not (isinstance(p[0], str) or isinstance(p[1], str))) else 100000000 for p in pixel_points))
+                max_y = int(max(p[1] if (not (isinstance(p[0], str) or isinstance(p[1], str))) else -100000000 for p in pixel_points))
+            
+                int_pixel_points = [(int(round(p[0])), int(round(p[1]))) if (not (isinstance(p[0], str) or isinstance(p[1], str))) else p  for p in pixel_points]
+                
+                
+            
+                for py in range(max(0, min_y - 1), min(self.height, max_y + 2)):
+                    for px in range(max(0, min_x - 1), min(self.width, max_x + 2)):
+                        
+                        if self._point_in_polygon(px, py, int_pixel_points, fill_rule):
+                            self._set_pixel(px, py, fill_color)
+    
         
         if stroke_color[3] > 0:
             stroke_width = ctx.stroke_width
@@ -1620,6 +1525,7 @@ class Renderer:
                 stroke_width = self.svg_state.transform_length(stroke_width, True)
             
             if stroke_width > 0:
+                
                 linecap = get_attribute_with_default(node, 'stroke-linecap', use_inheritance=True) or 'butt'
                 linejoin = get_attribute_with_default(node, 'stroke-linejoin', use_inheritance=True) or 'miter'
                 miter_limit_str = get_attribute_with_default(node, 'stroke-miterlimit', use_inheritance=True) or '4'
@@ -1644,6 +1550,14 @@ class Renderer:
                     px1, py1 = pixel_points[i]
                     px2, py2 = pixel_points[i + 1]
                     
+                    
+                    if( (isinstance(pixel_points[i+1][0], str) or isinstance(pixel_points[i+1][1], str)) ):
+                        px2, py2 = pixel_points[i]
+                    if( (isinstance(pixel_points[i][0], str) or isinstance(pixel_points[i][1], str)) ):
+                        px1, py1 = pixel_points[i+1]
+                        
+                    #print(px1, py1, px2, py2)
+                    
                     segment_length = math.sqrt((px2 - px1) ** 2 + (py2 - py1) ** 2)
                     segment_offset = dash_offset - cumulative_distance if cumulative_distance < dash_offset else 0.0
                     
@@ -1659,18 +1573,25 @@ class Renderer:
                     
                     if i < len(pixel_points) - 2:
                         px3, py3 = pixel_points[i + 2]
+                        if( (isinstance(pixel_points[i+2][0], str) or isinstance(pixel_points[i+2][1], str)) ):
+                            if(not (isinstance(pixel_points[i+1][0], str) or isinstance(pixel_points[i+1][1], str)) ):
+                                px3, py3 = pixel_points[i+1]
+                            else:
+                                px3, py3 = pixel_points[i]
+                        
                         angle2 = math.atan2(py3 - py2, px3 - px2)
                         self._draw_line_join(px2, py2, angle, angle2, stroke_color, stroke_width, linejoin, miter_limit)
                     
                     cumulative_distance += segment_length
                 
-                if len(pixel_points) > 2 and pixel_points[0] == pixel_points[-1]:
-                    px1, py1 = pixel_points[-2]
-                    px2, py2 = pixel_points[0]
-                    px3, py3 = pixel_points[1]
-                    angle1 = math.atan2(py2 - py1, px2 - px1)
-                    angle2 = math.atan2(py3 - py2, px3 - px2)
-                    self._draw_line_join(px2, py2, angle1, angle2, stroke_color, stroke_width, linejoin, miter_limit)
+                #if len(pixel_points) > 2 and pixel_points[0] == pixel_points[-1]:
+                #    
+                #    px1, py1 = pixel_points[-2]
+                #    px2, py2 = pixel_points[0]
+                #    px3, py3 = pixel_points[1]
+                #    angle1 = math.atan2(py2 - py1, px2 - px1)
+                #    angle2 = math.atan2(py3 - py2, px3 - px2)
+                #    self._draw_line_join(px2, py2, angle1, angle2, stroke_color, stroke_width, linejoin, miter_limit)
     
     def _render_use(self, node: Node):
         href = node.get_attribute('href', None, use_inheritance=False)
