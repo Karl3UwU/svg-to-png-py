@@ -76,6 +76,11 @@ class Renderer:
                 py = (py - self.svg_state.viewbox_offset_y) / self.svg_state.viewbox_scale_y
         return (px, py)
     
+    def _get_transform_scale(self, transform: TransformMatrix) -> float:
+        scale_x = math.sqrt(transform.a * transform.a + transform.b * transform.b)
+        scale_y = math.sqrt(transform.c * transform.c + transform.d * transform.d)
+        return (scale_x + scale_y) / 2.0
+    
     def _is_point_clipped(self, x: int, y: int) -> bool:
         ctx = self._get_current_context()
         if ctx.clip_region is None:
@@ -544,6 +549,10 @@ class Renderer:
         
         center_x, center_y = self._svg_to_pixel(cx, cy)
         radius_px = abs(self.svg_state.transform_length(r, True))
+        
+        if not ctx.transform.is_identity():
+            scale_factor = self._get_transform_scale(ctx.transform)
+            radius_px = radius_px * scale_factor
         
         if radius_px <= 0:
             return
