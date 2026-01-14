@@ -245,9 +245,15 @@ def blend_colors(foreground: tuple[int, int, int, int],
     if out_alpha == 0:
         return (0, 0, 0, 0)
     
-    out_r = int((fg_r * fg_alpha + bg_r * bg_alpha * (1 - fg_alpha)) / out_alpha)
-    out_g = int((fg_g * fg_alpha + bg_g * bg_alpha * (1 - fg_alpha)) / out_alpha)
-    out_b = int((fg_b * fg_alpha + bg_b * bg_alpha * (1 - fg_alpha)) / out_alpha)
+    if bg_alpha >= 1.0:
+        out_r = int(fg_r * fg_alpha + bg_r * (1 - fg_alpha))
+        out_g = int(fg_g * fg_alpha + bg_g * (1 - fg_alpha))
+        out_b = int(fg_b * fg_alpha + bg_b * (1 - fg_alpha))
+    else:
+        out_r = int((fg_r * fg_alpha + bg_r * bg_alpha * (1 - fg_alpha)) / out_alpha)
+        out_g = int((fg_g * fg_alpha + bg_g * bg_alpha * (1 - fg_alpha)) / out_alpha)
+        out_b = int((fg_b * fg_alpha + bg_b * bg_alpha * (1 - fg_alpha)) / out_alpha)
+    
     out_a = int(out_alpha * 255)
     
     return (out_r, out_g, out_b, out_a)

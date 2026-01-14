@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000">
+  <!-- Background -->
+  <rect width="1000" height="1000" fill="#1a1a2e"/>
+  
+  <!-- Rounded rectangles with various attributes -->
+  <rect x="50" y="50" width="200" height="150" rx="20" ry="20" fill="#e94560" stroke="#fff" stroke-width="3" opacity="0.9"/>
+  <rect x="300" y="50" width="150" height="150" rx="30" fill="#0f3460" stroke="#ffd32a" stroke-width="5" stroke-dasharray="10 5" stroke-dashoffset="0"/>
+  <rect x="500" y="50" width="200" height="150" rx="15" ry="40" fill="#533483" stroke="#16213e" stroke-width="2" transform="rotate(15 600 125)"/>
+  
+  <!-- Circles with various attributes -->
+  <circle cx="150" cy="300" r="80" fill="#ff6b6b" stroke="#4ecdc4" stroke-width="6" opacity="0.85"/>
+  <circle cx="350" cy="300" r="70" fill="none" stroke="#ffe66d" stroke-width="8" stroke-dasharray="20 10 5 10" stroke-dashoffset="10"/>
+  <circle cx="550" cy="300" r="75" fill="#95e1d3" stroke="#f38181" stroke-width="3" transform="translate(0, 20)"/>
+  <circle cx="750" cy="300" r="60" fill="#aa96da" stroke="#fcbad3" stroke-width="5" opacity="0.6" transform="scale(1.2) translate(-62.5 -50)"/>
+  <circle cx="900" cy="300" r="50" fill="#f8b500" stroke="#fc5185" stroke-width="4" stroke-linecap="round"/>
+  
+  <!-- Ellipses with various attributes -->
+  <ellipse cx="150" cy="500" rx="100" ry="60" fill="#ffa07a" stroke="#20b2aa" stroke-width="4"/>
+  <ellipse cx="350" cy="500" rx="80" ry="70" fill="none" stroke="#ffd700" stroke-width="6" stroke-dasharray="15 8" transform="rotate(45 350 500)"/>
+  <ellipse cx="550" cy="500" rx="90" ry="50" fill="#98d8c8" stroke="#f7dc6f" stroke-width="3" opacity="0.8"/>
+  <ellipse cx="750" cy="500" rx="70" ry="80" fill="#c44569" stroke="#f8b500" stroke-width="5" transform="skewX(10)"/>
+  <ellipse cx="900" cy="500" rx="60" ry="60" fill="#6c5ce7" stroke="#a29bfe" stroke-width="2" opacity="0.7"/>
+  
+  <!-- Lines with various attributes -->
+  <line x1="50" y1="600" x2="200" y2="750" stroke="#ff6b9d" stroke-width="8" stroke-linecap="round"/>
+  <line x1="250" y1="600" x2="400" y2="750" stroke="#c44569" stroke-width="6" stroke-linecap="square"/>
+  <line x1="450" y1="600" x2="600" y2="750" stroke="#f8b500" stroke-width="10" stroke-dasharray="25 15" stroke-dashoffset="5"/>
+  <line x1="650" y1="600" x2="800" y2="750" stroke="#6c5ce7" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+  <line x1="850" y1="600" x2="950" y2="750" stroke="#00d9ff" stroke-width="12" stroke-dasharray="30 10 10 10" stroke-linecap="butt"/>
+  
+  <!-- Polylines with various attributes -->
+  <polyline points="50,800 100,750 150,800 200,750 250,800" fill="none" stroke="#ff6b6b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="300,800 320,720 360,800 400,720 440,800" fill="none" stroke="#4ecdc4" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter" stroke-miterlimit="8"/>
+  <polyline points="500,800 520,750 560,800 600,750 640,800" fill="none" stroke="#ffe66d" stroke-width="4" stroke-dasharray="15 8" stroke-linejoin="bevel"/>
+  <polyline points="700,800 720,730 760,800 800,730 840,800" fill="none" stroke="#95e1d3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+  <polyline points="900,800 920,740 960,800 980,740 950,800" fill="none" stroke="#f38181" stroke-width="5" stroke-dasharray="20 10" stroke-linecap="square" transform="rotate(-10 925 770)"/>
+  
+  <!-- Complex paths with various attributes -->
+  <path d="M 100,250 Q 150,200 200,250 T 300,250" fill="none" stroke="#ff006e" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 400,250 Q 450,200 500,250 T 600,250" fill="none" stroke="#00d9ff" stroke-width="4" stroke-dasharray="20 10" opacity="0.8"/>
+  <path d="M 700,250 C 750,200 800,200 850,250 S 950,300 1000,250" fill="none" stroke="#ffd32a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Filled paths with fill-rule -->
+  <path d="M 50,900 L 150,850 L 150,950 L 50,950 Z M 100,900 L 200,850 L 200,950 L 100,950 Z" fill="#e94560" fill-rule="evenodd" stroke="#fff" stroke-width="2" opacity="0.9"/>
+  <path d="M 250,900 L 350,850 L 350,950 L 250,950 Z M 300,900 L 400,850 L 400,950 L 300,950 Z" fill="#0f3460" fill-rule="nonzero" stroke="#ffd32a" stroke-width="3"/>
+  
+  <!-- Complex path with arcs -->
+  <path d="M 500,900 A 50,30 0 1,1 600,900 A 50,30 0 1,1 500,900" fill="#533483" stroke="#16213e" stroke-width="2" opacity="0.8"/>
+  <path d="M 700,900 A 40,40 45 0,0 800,900 A 40,40 45 0,0 700,900" fill="none" stroke="#00d9ff" stroke-width="4" stroke-dasharray="15 8"/>
+  
+  <!-- Path with multiple commands -->
+  <path d="M 850,900 L 900,850 H 950 V 900 L 900,950 H 850 Z" fill="#ff6b9d" stroke="#c44569" stroke-width="3" transform="rotate(45 900 900)"/>
+  
+  <!-- Transformed shapes -->
+  <g transform="translate(100, 100) rotate(30) scale(0.7)">
+    <rect x="0" y="0" width="100" height="100" rx="10" fill="#f8b500" stroke="#fc5185" stroke-width="3"/>
+    <circle cx="50" cy="50" r="30" fill="#aa96da" stroke="#fcbad3" stroke-width="2" opacity="0.7"/>
+  </g>
+  
+  <!-- Group with opacity -->
+  <g opacity="0.6" transform="translate(800, 200)">
+    <ellipse cx="0" cy="0" rx="40" ry="60" fill="#95e1d3" stroke="#f38181" stroke-width="3"/>
+    <line x1="-30" y1="0" x2="30" y2="0" stroke="#f38181" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Complex path with curves and lines -->
+  <path d="M 200,100 L 250,150 Q 300,100 350,150 T 450,150 L 500,100" fill="none" stroke="#ff6b6b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Path with relative commands -->
+  <path d="M 600,100 l 50,50 q 50,-50 50,50 t 50,50 l 50,-50" fill="none" stroke="#4ecdc4" stroke-width="4" stroke-dasharray="20 10" opacity="0.8"/>
+  
+  <!-- Horizontal and vertical lines in path -->
+  <path d="M 800,100 H 900 V 200 H 800 Z" fill="#ffe66d" stroke="#ff6b6b" stroke-width="3" opacity="0.7"/>
+  
+  <!-- Path with smooth curves -->
+  <path d="M 100,400 C 150,350 200,350 250,400 S 350,450 400,400" fill="none" stroke="#95e1d3" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Path with quadratic smooth curves -->
+  <path d="M 500,400 Q 550,350 600,400 T 700,400" fill="none" stroke="#f38181" stroke-width="5" stroke-dasharray="25 12" stroke-linecap="square"/>
+  
+  <!-- Complex filled path -->
+  <path d="M 800,350 L 850,400 L 900,350 L 950,400 L 950,450 L 800,450 Z" fill="#aa96da" fill-rule="evenodd" stroke="#fcbad3" stroke-width="4" opacity="0.8"/>
+  
+  <!-- Path with arc -->
+  <path d="M 100,650 A 50,30 30 1,0 200,650" fill="none" stroke="#f8b500" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Multiple overlapping shapes with different opacities -->
+  <circle cx="450" cy="650" r="40" fill="#ff006e" opacity="0.5"/>
+  <circle cx="470" cy="650" r="40" fill="#00d9ff" opacity="0.5"/>
+  <circle cx="490" cy="650" r="40" fill="#ffd32a" opacity="0.5"/>
+  
+  <!-- Thick lines with different caps -->
+  <line x1="600" y1="650" x2="700" y2="650" stroke="#6c5ce7" stroke-width="20" stroke-linecap="round"/>
+  <line x1="600" y1="680" x2="700" y2="680" stroke="#a29bfe" stroke-width="20" stroke-linecap="square"/>
+  <line x1="600" y1="710" x2="700" y2="710" stroke="#00d9ff" stroke-width="20" stroke-linecap="butt"/>
+  
+  <!-- Polylines showing different joins -->
+  <polyline points="750,650 800,600 850,650" fill="none" stroke="#ff6b9d" stroke-width="15" stroke-linejoin="miter" stroke-miterlimit="10"/>
+  <polyline points="750,700 800,650 850,700" fill="none" stroke="#c44569" stroke-width="15" stroke-linejoin="round"/>
+  <polyline points="750,750 800,700 850,750" fill="none" stroke="#f8b500" stroke-width="15" stroke-linejoin="bevel"/>
+  
+  <!-- Complex path with all command types -->
+  <path d="M 50,50 m 20,20 l 30,30 h 20 v 20 c 10,10 20,10 30,0 s 10,-20 0,-30 q 10,-10 20,0 t 20,20 a 15,15 0 1,1 -30,0 z" 
+        fill="#e94560" fill-rule="nonzero" stroke="#fff" stroke-width="2" opacity="0.9" transform="translate(900, 800) scale(0.5)"/>
+</svg>
+

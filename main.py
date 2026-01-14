@@ -8,7 +8,7 @@ from renderer import Renderer
 def process_svg_file(svg_path: str, output_path: str = None, verbose: bool = False,
                     width: int = None, height: int = None, 
                     background: tuple[int, int, int] = (255, 255, 255),
-                    skip_render: bool = False):
+                    skip_render: bool = False, anti_aliasing: bool = False):
     if not os.path.exists(svg_path):
         print(f"Error: File not found: {svg_path}")
         return False
@@ -44,7 +44,7 @@ def process_svg_file(svg_path: str, output_path: str = None, verbose: bool = Fal
         
         if not skip_render:
             try:
-                renderer = Renderer(svg_state, width=width, height=height, background_color=background)
+                renderer = Renderer(svg_state, width=width, height=height, background_color=background, anti_aliasing=anti_aliasing)
                 renderer.render()
                 
                 try:
@@ -59,8 +59,8 @@ def process_svg_file(svg_path: str, output_path: str = None, verbose: bool = Fal
                 except ImportError:
                     if verbose:
                         print(f"[WARNING] PIL/Pillow not installed. Buffer created but PNG export skipped.")
-                        print(f"         Install with: pip install Pillow 🤓")
-                    print(f"[OK] Rendered: {svg_path} (TODO: Export with Pillow or some random ass library)")
+                        print(f"         Install with: pip install Pillow")
+                    print(f"[OK] Rendered: {svg_path} (PNG export requires Pillow)")
                 except Exception as e:
                     print(f"Error saving PNG: {e}")
                     return False
@@ -91,6 +91,7 @@ def main():
         print("  -w, --width WIDTH     Override output width in pixels")
         print("  -h, --height HEIGHT   Override output height in pixels")
         print("  -b, --background RGB  Background color as R,G,B (default: 255,255,255)")
+        print("  -aa, --anti-aliasing  Enable anti-aliasing (default: off)")
         print("  --skip-render         Skip rendering (only parse and validate)")
         print("\nExamples:")
         print("  python main.py test.svg")
@@ -106,6 +107,7 @@ def main():
     height = None
     background = (255, 255, 255)
     skip_render = False
+    anti_aliasing = False
     svg_files = []
     
     i = 0
@@ -169,6 +171,19 @@ def main():
             else:
                 print("Error: -b/--background requires R,G,B values")
                 return
+        elif arg in ['-aa', '--anti-aliasing']:
+            if i + 1 < len(args):
+                aa_value = args[i + 1].lower()
+                if aa_value in ['true', '1', 'yes', 'on']:
+                    anti_aliasing = True
+                elif aa_value in ['false', '0', 'no', 'off']:
+                    anti_aliasing = False
+                else:
+                    print("Error: -aa/--anti-aliasing requires true/false, 1/0, yes/no, or on/off")
+                    return
+                i += 1
+            else:
+                anti_aliasing = True
         elif arg == '--skip-render':
             skip_render = True
         elif arg.startswith('-'):
@@ -195,7 +210,7 @@ def main():
                 else:
                     print(f"Warning: -o with multiple files requires a directory, not a file")
         
-        if process_svg_file(svg_file, output_path, verbose, width, height, background, skip_render):
+        if process_svg_file(svg_file, output_path, verbose, width, height, background, skip_render, anti_aliasing):
             success_count += 1
     
     print(f"\nProcessed {success_count}/{len(svg_files)} file(s) successfully")

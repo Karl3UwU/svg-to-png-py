@@ -49,10 +49,29 @@ class TransformMatrix:
             self.b * other.e + self.d * other.f + self.f
         )
     
+    def is_identity(self) -> bool:
+        return (abs(self.a - 1.0) < 1e-6 and abs(self.b) < 1e-6 and 
+                abs(self.c) < 1e-6 and abs(self.d - 1.0) < 1e-6 and 
+                abs(self.e) < 1e-6 and abs(self.f) < 1e-6)
+    
     def transform_point(self, x: float, y: float) -> tuple[float, float]:
         new_x = self.a * x + self.c * y + self.e
         new_y = self.b * x + self.d * y + self.f
         return (new_x, new_y)
+    
+    def inverse(self) -> 'TransformMatrix':
+        det = self.a * self.d - self.b * self.c
+        if abs(det) < 1e-10:
+            return TransformMatrix.identity()
+        
+        inv_det = 1.0 / det
+        new_a = self.d * inv_det
+        new_b = -self.b * inv_det
+        new_c = -self.c * inv_det
+        new_d = self.a * inv_det
+        new_e = (self.c * self.f - self.d * self.e) * inv_det
+        new_f = (self.b * self.e - self.a * self.f) * inv_det
+        return TransformMatrix(new_a, new_b, new_c, new_d, new_e, new_f)
     
     def copy(self) -> 'TransformMatrix':
         return TransformMatrix(self.a, self.b, self.c, self.d, self.e, self.f)
@@ -95,7 +114,7 @@ class DrawingContext:
             except (ValueError, TypeError):
                 self.opacity = 1.0
     
-    def apply_transform(self, transform_str: str):
+    def apply_transform(self, transform_str: str, svg_state = None):
         if not transform_str:
             return
         
@@ -106,7 +125,9 @@ class DrawingContext:
         
         matches = transform_pattern.findall(transform_str)
         for func_name, params in matches:
-            params = [float(p.strip()) for p in params.split(',')]
+            params_str = params.strip()
+            params_list = re.split(r'[,\s]+', params_str)
+            params = [float(p) for p in params_list if p]
             func_name = func_name.lower()
             
             if func_name == 'matrix' and len(params) >= 6:
@@ -124,6 +145,8 @@ class DrawingContext:
                 angle = params[0] if len(params) > 0 else 0.0
                 cx = params[1] if len(params) > 1 else 0.0
                 cy = params[2] if len(params) > 2 else 0.0
+                if svg_state and svg_state.viewbox is not None:
+                    cx, cy = svg_state.transform_point(cx, cy)
                 new_transform = TransformMatrix.rotate(angle, cx, cy)
                 self.transform = self.transform.multiply(new_transform)
             
