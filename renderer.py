@@ -28,6 +28,8 @@ class Renderer:
         self.width = width
         self.height = height
         
+        self.previousStack = None
+        
         if width != original_width or height != original_height:
             svg_state.viewport_width = float(width)
             svg_state.viewport_height = float(height)
@@ -73,11 +75,6 @@ class Renderer:
             if self.svg_state.viewbox_scale_y != 0:
                 py = (py - self.svg_state.viewbox_offset_y) / self.svg_state.viewbox_scale_y
         return (px, py)
-    
-    def _get_transform_scale(self, transform: TransformMatrix) -> float:
-        scale_x = math.sqrt(transform.a * transform.a + transform.b * transform.b)
-        scale_y = math.sqrt(transform.c * transform.c + transform.d * transform.d)
-        return (scale_x + scale_y) / 2.0
     
     def _is_point_clipped(self, x: int, y: int) -> bool:
         ctx = self._get_current_context()
@@ -248,7 +245,7 @@ class Renderer:
             'points': all_points,
             'rule': clip_rule
         }
-    
+
     def _render_node(self, node: Node):
         if node is None:
             return
@@ -282,9 +279,12 @@ class Renderer:
         
         if node.tag == 'g':
             self._push_context()
+            currentContext = ctx.transform.copy()
             for child in node.children:
                 self._render_node(child)
+            ctx.transform = TransformMatrix.identity()
             self._pop_context()
+            
         
         elif node.tag == 'rect':
             self._render_rect(node)
@@ -313,6 +313,8 @@ class Renderer:
         if node.tag not in ['g']:
             for child in node.children:
                 self._render_node(child)
+                
+        self.previousStack = self.context_stack
     
     def _render_rect(self, node: Node):
         ctx = self._get_current_context()
@@ -542,10 +544,6 @@ class Renderer:
         
         center_x, center_y = self._svg_to_pixel(cx, cy)
         radius_px = abs(self.svg_state.transform_length(r, True))
-        
-        if not ctx.transform.is_identity():
-            scale_factor = self._get_transform_scale(ctx.transform)
-            radius_px = radius_px * scale_factor
         
         if radius_px <= 0:
             return
